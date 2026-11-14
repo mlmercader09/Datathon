@@ -1,4 +1,8 @@
 """Ask the small language model for one letter, A to E."""
+import math
+import urllib.error
+
+from . import calibration
 from .config import CONFIG
 from .client import post
 
@@ -38,15 +42,48 @@ def build_messages(problem, examples=(), image_b64=None):
     return messages
 
 
-def answer_letter(problem, examples=(), timeout=60, image_b64=None, url=URL):
-    """Return (letter, timings). The grammar makes any other output impossible."""
-    response = post(url, {
+def letter_logprobs(response):
+    """{letter: log-probability} for the answer token, or None if the server didn't send them."""
+    try:
+        top = response["choices"][0]["logprobs"]["content"][0]["top_logprobs"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    probs = {}
+    for item in top:
+        token = str(item.get("token", "")).strip()
+        if len(token) == 1 and token in calibration.LETTERS:  # "B" and " B" are the same answer
+            probs[token] = probs.get(token, 0.0) + math.exp(item["logprob"])
+    if len(probs) < 2:
+        return None
+    floor = min(probs.values()) / 10  # a letter outside the top tokens is less likely than all of these
+    return {l: math.log(probs.get(l, floor)) for l in calibration.LETTERS}
+
+
+def ask(problem, examples=(), timeout=60, image_b64=None, url=URL):
+    """Return (letter, logprobs, timings). The grammar makes any other output impossible."""
+    payload = {
         "messages": build_messages(problem, examples, image_b64),
         "grammar": "root ::= [A-E]",
         "max_tokens": 1,
         "temperature": 0,
         "seed": int(CONFIG["SEED"]),
         "cache_prompt": True,
-    }, timeout=timeout)
+        "logprobs": True,
+        "top_logprobs": 20,
+    }
+    try:
+        response = post(url, payload, timeout=timeout)
+    except urllib.error.HTTPError:
+        # A server that refuses logprobs still answers the plain request
+        del payload["logprobs"], payload["top_logprobs"]
+        response = post(url, payload, timeout=timeout)
     letter = response["choices"][0]["message"]["content"].strip()
-    return letter, response.get("timings", {})
+    return letter, letter_logprobs(response), response.get("timings", {})
+
+
+def answer_letter(problem, examples=(), timeout=60, image_b64=None, url=URL):
+    """Return (letter, timings), with the letter bias corrected if copilot/calibration.json exists."""
+    letter, logprobs, timings = ask(problem, examples, timeout, image_b64, url)
+    letter = calibration.choose(letter, logprobs, has_options=bool(problem.get("options")),
+                                rag=bool(examples))
+    return letter, timings
