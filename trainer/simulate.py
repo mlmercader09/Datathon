@@ -60,9 +60,13 @@ def main():
 
     print(f"{'Student':<16}{'End':>5}{'Last 10 (mean)':>16}{'Similarity':>12}{'Easier hint':>13}{'ms/step':>9}  Path")
     for name, true_level, noise in students:
-        with tempfile.TemporaryDirectory() as tmp:
+        # ignore_cleanup_errors: on Windows a file that was just closed can stay locked for a moment
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             trainer = Trainer(bank, db_path=os.path.join(tmp, "s.db"))
-            path, sims, times, easier = run(trainer, name, true_level, args.steps, args.language, noise, rng)
+            try:
+                path, sims, times, easier = run(trainer, name, true_level, args.steps, args.language, noise, rng)
+            finally:
+                trainer.close()  # Windows can't delete a file that is still open
         last = statistics.mean(path[-10:])
         hint = f"{sum(easier)}/{len(easier)}" if easier else "-"
         print(f"{name:<16}{path[-1]:>5}{last:>16.1f}{statistics.mean(sims):>12.2f}{hint:>13}"

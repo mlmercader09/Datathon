@@ -33,6 +33,9 @@ class Trainer:
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.executescript(SCHEMA)
 
+    def close(self):
+        self.db.close()
+
     # ---- profile --------------------------------------------------------
     def student(self, name):
         row = self.db.execute("SELECT level, current, language FROM students WHERE name=?", (name,)).fetchone()
