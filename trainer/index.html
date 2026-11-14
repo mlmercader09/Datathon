@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrenador Cangur</title>
+<style>
+  /* No fonts or files from the internet: everything works offline */
+  :root { --ok: #1a7f37; --ko: #c62828; --ink: #1f2328; --soft: #f6f8fa; --line: #d0d7de; --accent: #0a58ca; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fff; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  h1 { font-size: 1.3rem; margin: 0; }
+  .level { font-weight: 700; padding: 6px 12px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); }
+  .bar { display: flex; gap: 4px; margin: 14px 0 18px; }
+  .bar span { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+  .bar span.on { background: var(--accent); }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  .card img { max-width: 100%; display: block; margin: 0 auto 12px; }
+  .text { font-size: 1.1rem; line-height: 1.55; white-space: pre-wrap; }
+  .opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 16px; }
+  .opts button { font-size: 1.05rem; padding: 12px 6px; border-radius: 10px; border: 1px solid var(--line);
+                 background: #fff; cursor: pointer; }
+  .opts button:hover { border-color: var(--accent); }
+  .opts button b { display: block; font-size: 1.3rem; }
+  .verdict { font-size: 1.4rem; font-weight: 700; margin: 0 0 8px; }
+  .verdict.ok { color: var(--ok); } .verdict.ko { color: var(--ko); }
+  .hint { background: #fff8e1; border-color: #f0c36d; }
+  .hint h2 { font-size: 1rem; margin: 0 0 8px; }
+  .muted { color: #57606a; font-size: .9rem; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, select { font-size: 1rem; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+  .primary { font-size: 1rem; padding: 10px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🦘 Entrenador Cangur</h1>
+    <div class="level" id="level">Nivell –</div>
+  </header>
+  <div class="bar" id="bar"></div>
+
+  <section class="card" id="login">
+    <p>Escriu el teu nom per començar (o continuar on ho vas deixar).</p>
+    <div class="row">
+      <input id="name" placeholder="El teu nom" autocomplete="off">
+      <select id="language"><option value="cat">Català</option><option value="eng">English</option></select>
+      <select id="start"><option value="0">Nivell 0 (5è)</option><option value="1">Nivell 1</option>
+        <option value="2">Nivell 2</option><option value="3">Nivell 3</option></select>
+      <button class="primary" id="go">Comença</button>
+    </div>
+  </section>
+
+  <section id="result" class="card hidden">
+    <p class="verdict" id="verdict"></p>
+    <p class="muted" id="detail"></p>
+  </section>
+
+  <section id="hint" class="card hint hidden">
+    <h2>💡 Pista: un problema semblant, més fàcil, ja resolt</h2>
+    <div id="hintBody"></div>
+  </section>
+
+  <section id="problem" class="card hidden">
+    <div id="problemBody"></div>
+    <div class="opts" id="opts"></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let name = "", shownAt = 0, levels = 8;
+
+function drawLevel(level) {
+  $("level").textContent = "Nivell " + level;
+  $("bar").innerHTML = Array.from({length: levels}, (_, i) => `<span class="${i <= level ? "on" : ""}"></span>`).join("");
+}
+
+function body(p) {
+  const img = p.image ? `<img src="/image/${p.id}_${p.language}" alt="Problema">` : "";
+  const opts = Object.keys(p.options).length
+    ? `<p class="muted">${Object.entries(p.options).map(([k, v]) => `${k}) ${v}`).join(" · ")}</p>` : "";
+  return `${img}<div class="text"></div>${opts}`;
+}
+
+function fill(el, p) {
+  el.innerHTML = body(p);
+  el.querySelector(".text").textContent = p.text;   // textContent: never inject the problem as HTML
+}
+
+function show(p) {
+  fill($("problemBody"), p);
+  $("opts").innerHTML = "ABCDE".split("").map(l =>
+    `<button data-l="${l}"><b>${l}</b>${p.options[l] ? escapeHtml(p.options[l]) : ""}</button>`).join("");
+  $("opts").querySelectorAll("button").forEach(b => b.onclick = () => answer(b.dataset.l));
+  $("problem").classList.remove("hidden");
+  drawLevel(p.student_level);
+  shownAt = performance.now();
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+async function post(path, data) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+$("go").onclick = async () => {
+  name = $("name").value.trim();
+  if (!name) return $("name").focus();
+  const p = await post("/api/start", {name, language: $("language").value, level: +$("start").value});
+  $("login").classList.add("hidden");
+  show(p);
+};
+
+async function answer(choice) {
+  const seconds = (performance.now() - shownAt) / 1000;
+  const r = await post("/api/answer", {name, choice, seconds});
+  $("result").classList.remove("hidden");
+  $("verdict").className = "verdict " + (r.correct ? "ok" : "ko");
+  $("verdict").textContent = r.correct ? "✓ Correcte! Pugem de nivell." : `✗ No és la ${choice}. Era la ${r.label}.`;
+  $("detail").textContent = r.correct ? "Aquí tens un problema semblant, una mica més difícil."
+                                      : "Mira la pista i prova'n un de semblant, una mica més fàcil.";
+  if (r.hint) {
+    fill($("hintBody"), r.hint);
+    $("hintBody").insertAdjacentHTML("beforeend", `<p><b>Resposta: ${r.hint.label}</b>${
+      r.hint.options[r.hint.label] ? " (" + escapeHtml(r.hint.options[r.hint.label]) + ")" : ""} · nivell ${r.hint.level}</p>`);
+    $("hint").classList.remove("hidden");
+  } else {
+    $("hint").classList.add("hidden");
+  }
+  show(r.next);
+}
+
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+document.addEventListener("keydown", e => {
+  if ($("problem").classList.contains("hidden") || document.activeElement === $("name")) return;
+  const k = e.key.toUpperCase();
+  if ("ABCDE".includes(k) && k.length === 1) answer(k);
+});
+drawLevel(0);
+</script>
+</body>
+</html>
