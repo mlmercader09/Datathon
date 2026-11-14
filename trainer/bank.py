@@ -17,6 +17,9 @@ from array import array
 from collections import Counter, defaultdict
 
 WORD = re.compile(r"[a-z]+")
+# Similarity above this means "the same problem", not "a similar one"
+DUPLICATE = 0.9
+
 STOP = set("""a an the of to in on and or is are was were be by for with as at from that this
 these those it its which what how many much there their they he she his her we you your
 can do does if then than each one two three has have had not no all any into out up so""".split())
@@ -124,8 +127,10 @@ class Bank:
 
         If no problem is left at that level, it takes the closest level instead.
         """
+        # Skip near-duplicates: Kangaroo repeats some problems in two categories,
+        # and showing the same problem as a "hint" would give the answer away.
         candidates = [(s, o) for s, o in self.neighbours(pid)
-                      if o not in exclude and self.usable(o, language)]
+                      if o not in exclude and s < DUPLICATE and self.usable(o, language)]
         for distance in range(len(self.levels)):
             for lvl in (level - distance, level + distance) if distance else (level,):
                 found = [(s, o) for s, o in candidates if self.level[o] == lvl]
