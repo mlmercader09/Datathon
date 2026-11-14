@@ -79,7 +79,7 @@ function drawLevel(level) {
 }
 
 function body(p) {
-  const img = p.image ? `<img src="/image/${p.id}_${p.language}" alt="Problema">` : "";
+  const img = p.image ? `<img src="images/${p.id}_${p.language}.png" alt="Problema">` : "";
   const opts = Object.keys(p.options).length
     ? `<p class="muted">${Object.entries(p.options).map(([k, v]) => `${k}) ${v}`).join(" · ")}</p>` : "";
   // The image already shows the text and the options: repeat them only when there is no image
@@ -104,8 +104,10 @@ function show(p) {
 
 function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
-async function post(path, data) {
-  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+// GET with path parameters and relative URLs, so the same page works with
+// trainer/server.py on a laptop and with the App Lab web_ui brick on the board
+async function get(path) {
+  const r = await fetch(path);
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
@@ -114,14 +116,14 @@ async function post(path, data) {
 $("go").onclick = async () => {
   name = $("name").value.trim();
   if (!name) return $("name").focus();
-  const p = await post("/api/start", {name, language: $("language").value, level: +$("start").value});
+  const p = await get(`api/start/${encodeURIComponent(name)}/${$("language").value}/${$("start").value}`);
   $("login").classList.add("hidden");
   show(p);
 };
 
 async function answer(choice) {
   const seconds = (performance.now() - shownAt) / 1000;
-  const r = await post("/api/answer", {name, choice, seconds});
+  const r = await get(`api/answer/${encodeURIComponent(name)}/${choice}/${seconds.toFixed(1)}`);
   $("result").classList.remove("hidden");
   $("verdict").className = "verdict " + (r.correct ? "ok" : "ko");
   $("verdict").textContent = r.correct ? "✓ Correcte! Pugem de nivell." : `✗ No és la ${choice}. Era la ${r.label}.`;

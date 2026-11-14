@@ -1,0 +1,5 @@
+name: Cangur trainer
+icon: 🦘
+description: Adaptive Kangaroo trainer with M3Kang. Answer on the web page, see a tick or a cross and your level on the LED matrix.
+bricks:
+  - arduino:web_ui

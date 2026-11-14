@@ -8,6 +8,7 @@ The student's profile lives in a SQLite file on the board. Nothing leaves the de
 """
 import json
 import sqlite3
+import threading
 import time
 
 from . import led
@@ -32,6 +33,8 @@ class Trainer:
         self.start_level = start_level
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.executescript(SCHEMA)
+        # The web servers answer from several threads: one student step at a time
+        self.lock = threading.RLock()
 
     def close(self):
         self.db.close()
@@ -55,6 +58,15 @@ class Trainer:
     # ---- the loop -------------------------------------------------------
     def start(self, name, language="cat", level=None):
         """Start (or resume) a student. Returns the first problem."""
+        with self.lock:
+            return self._start(name, language, level)
+
+    def answer(self, name, choice, seconds=0.0):
+        """Check the answer, update the level, and choose what comes next."""
+        with self.lock:
+            return self._answer(name, choice, seconds)
+
+    def _start(self, name, language, level):
         s = self.student(name)
         if s and s["current"]:
             led.show_level(s["level"])
@@ -65,8 +77,7 @@ class Trainer:
         led.show_level(level)
         return self.view(first, language, level)
 
-    def answer(self, name, choice, seconds=0.0):
-        """Check the answer, update the level, and choose what comes next."""
+    def _answer(self, name, choice, seconds):
         t0 = time.perf_counter()
         s = self.student(name)
         if not s or not s["current"]:

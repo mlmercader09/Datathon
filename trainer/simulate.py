@@ -23,7 +23,7 @@ from .trainer import Trainer  # noqa: E402
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--data", nargs="+", default=["data/train.jsonl", "data/val.jsonl"])
-    p.add_argument("--index", default="data/index.db")
+    p.add_argument("--index", default="data/trainer_index.db", help="embeddings of every problem (see trainer/README.md)")
     p.add_argument("--images", default="data/images")
     p.add_argument("--language", default="cat")
     p.add_argument("--steps", type=int, default=30)
