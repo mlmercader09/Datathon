@@ -30,6 +30,8 @@ def read_jsonl(path):
 class Bank:
     def __init__(self, paths, index_db=None, images="data/images"):
         self.images = images
+        # List the images once: checking the disk for every candidate is slow
+        self.image_files = set(os.listdir(images)) if os.path.isdir(images) else set()
         # by_id[id][language] = problem
         self.by_id = defaultdict(dict)
         for path in paths:
@@ -56,7 +58,7 @@ class Bank:
         return versions.get(language) or versions.get("eng") or next(iter(versions.values()))
 
     def has_image(self, pid, language):
-        return os.path.exists(self.image_path(pid, language))
+        return f"{pid}_{language}.png" in self.image_files
 
     def image_path(self, pid, language):
         return os.path.join(self.images, f"{pid}_{language}.png")

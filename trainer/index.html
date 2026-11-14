@@ -82,7 +82,8 @@ function body(p) {
   const img = p.image ? `<img src="/image/${p.id}_${p.language}" alt="Problema">` : "";
   const opts = Object.keys(p.options).length
     ? `<p class="muted">${Object.entries(p.options).map(([k, v]) => `${k}) ${v}`).join(" · ")}</p>` : "";
-  return `${img}<div class="text"></div>${opts}`;
+  // The image already shows the text and the options: repeat them only when there is no image
+  return p.image ? img + `<div class="text hidden"></div>` : `<div class="text"></div>${opts}`;
 }
 
 function fill(el, p) {
