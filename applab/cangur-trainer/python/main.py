@@ -17,7 +17,7 @@ sys.path.insert(0, HERE)
 
 import numpy as np  # noqa: E402
 from arduino.app_bricks.web_ui import WebUI  # noqa: E402
-from arduino.app_utils import App, Bridge, Frame  # noqa: E402
+from arduino.app_utils import App, Bridge  # noqa: E402
 
 from trainer import led  # noqa: E402
 from trainer.bank import Bank  # noqa: E402
@@ -70,7 +70,7 @@ def draw(rows):
         for c, pixel in enumerate(line):
             if pixel == "#":
                 grid[r, c] = 7
-    Bridge.call("draw", Frame(grid).to_board_bytes())
+    Bridge.call("draw", grid.tobytes())
 
 
 def level_rows(level):
