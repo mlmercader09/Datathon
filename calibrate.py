@@ -62,9 +62,9 @@ def main():
             except OSError as error:  # a timeout or a server that is down: skip this problem
                 print(f"[{n}/{len(problems)}] {problem['id']}: skipped ({error})", flush=True)
                 continue
-            if logprobs is None:
-                raise SystemExit("The server sent no letter probabilities, so there is nothing to calibrate. "
-                                 "Check: curl http://127.0.0.1:8081/health")
+            if logprobs is None:  # no letter among the most likely tokens: skip this problem
+                print(f"[{n}/{len(problems)}] {problem['id']}: skipped (no letter probabilities)", flush=True)
+                continue
             case = calibration.group(bool(problem.get("options")), bool(examples))
             rows.setdefault(case, []).append((logprobs, problem["label"], letter))
             writer.writerow([problem["id"], problem["language"], case, problem["label"], letter]

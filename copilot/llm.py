@@ -49,13 +49,17 @@ def letter_logprobs(response):
     except (KeyError, IndexError, TypeError):
         return None
     probs = {}
+    smallest = 1.0
     for item in top:
+        p = math.exp(item["logprob"])
+        smallest = min(smallest, p)
         token = str(item.get("token", "")).strip()
         if len(token) == 1 and token in calibration.LETTERS:  # "B" and " B" are the same answer
-            probs[token] = probs.get(token, 0.0) + math.exp(item["logprob"])
-    if len(probs) < 2:
+            probs[token] = probs.get(token, 0.0) + p
+    if not probs:
         return None
-    floor = min(probs.values()) / 10  # a letter outside the top tokens is less likely than all of these
+    # A letter outside the top tokens is less likely than every token in the list
+    floor = max(smallest / 2, 1e-9)
     return {l: math.log(probs.get(l, floor)) for l in calibration.LETTERS}
 
 
