@@ -59,6 +59,8 @@ El model té una forta preferència per una lletra: a la primera prova va respon
 
 Es calibra per separat per als problemes amb opcions i sense. Si no hi ha `copilot/calibration.json`, o amb `CALIBRATION=0`, el model respon com abans.
 
+**La versió final no fa servir aquesta correcció.** Amb les dades que vam poder mesurar, el pes òptim va sortir 0: la correcció deixava de banda el model i responia sempre D. Al set de pràctica, el model sense correcció va encertar un problema més que respondre sempre D, així que el vam deixar sense corregir (vegeu *Resultats*).
+
 ## Com replicar-ho
 
 Partiu d'una placa preparada amb els passos 0 a 10 de la [guia del repte](GUIA_REPTE.md): llama.cpp compilat, els dos models a `~/models`, els serveis `math-llm` (8081) i `math-embed` (8082) actius, aquest repositori a `~/Datathon`, i `data/train.jsonl`, `data/val.jsonl` i `data/images` preparats al portàtil i copiats a la placa. Les dades de M3Kang no són al repositori: s'han de generar amb `laptop/prepare_m3kang.py`.
@@ -79,20 +81,43 @@ Si la placa es reinicia, l'app no arrenca sola: torneu a executar `arduino-app-c
 
 Més detalls a [trainer/README.md](trainer/README.md).
 
-### La correcció de lletra, a la placa
+### La correcció de lletra, a la placa (opcional)
+
+La versió final no la fa servir. Per provar-la:
 
 ```bash
 python3 calibrate.py --input data/train.jsonl --limit 100    # uns 15 min, escriu copilot/calibration.json
 python3 eval.py --limit 50 --name calibrat                   # mesura sobre validació
 ```
 
-`calibrate.py` només fa servir problemes d'entrenament, de manera que `eval.py` sobre validació continua sent una mesura honesta.
+`calibrate.py` només fa servir problemes d'entrenament, de manera que `eval.py` sobre validació continua sent una mesura honesta. Per tornar a la versió sense correcció, esborreu o canvieu de nom `copilot/calibration.json`.
+
+### El set de pràctica dels organitzadors
+
+```bash
+python3 laptop/prepare_m3kang.py --parquet data/demo-00000-of-00001.parquet --languages eng,cat --val-fraction 0 --out data/demo --save-images   # al portàtil
+python3 eval.py --input data/demo/train.jsonl --limit 30 --name demo-model                                                                     # a la placa
+```
 
 ## Resultats
 
 ### Reasoning
 
-Sobre 50 problemes de validació de M3Kang, a la placa. **En aquestes proves cap problema tenia les opcions en text** (les dades eren sense OCR), així que el model només veia l'enunciat:
+**Versió final, sobre el set de pràctica dels organitzadors** (30 dels 100 problemes nous d'estil Cangur, amb les opcions llegides per OCR a tots 30), a la placa:
+
+| Experiment | Encerts | Temps mitjà | Temps màxim | Problemes |
+| --- | --- | --- | --- | --- |
+| Model sense correcció (versió final) | 10/30 = 33,3 % | 7,9 s | 10,4 s | 30 |
+| Respondre sempre D (referència) | 9/30 = 30,0 % | – | – | 30 |
+| A l'atzar (referència) | 20 % | – | – | – |
+
+- El model va respondre D 25 de 30 vegades i A 5 vegades; mai B, C ni E. Encerta un sol problema més que respondre sempre D, així que no podem dir que raoni de veritat.
+- Català i anglès, 5/15 cadascun.
+- Cap problema va superar els 60 s.
+
+**Calibratge amb opcions**, sobre 40 problemes d'entrenament de M3Kang amb les opcions llegides per OCR: el model sense corregir va encertar 5/40 (12,5 %, menys que l'atzar). El calibratge va triar pes 0, és a dir, respondre sempre la lletra més freqüent (D): 10/40 (25 %, optimista perquè és la mateixa mostra amb què s'ajusta).
+
+**Primeres proves**, sobre 50 problemes de validació de M3Kang, a la placa. **En aquestes proves cap problema tenia les opcions en text** (les dades eren sense OCR), així que el model només veia l'enunciat:
 
 | Experiment | Encerts | Temps mitjà | Temps màxim | Problemes |
 | --- | --- | --- | --- | --- |
@@ -104,7 +129,6 @@ Sobre 50 problemes de validació de M3Kang, a la placa. **En aquestes proves cap
 - Sobre 95 problemes d'entrenament sense opcions: 17,9 % sense corregir i 29,5 % corregit (optimista, perquè és la mateixa mostra amb què s'ajusta).
 - Amb 50 problemes, una diferència de 5 encerts pot ser casualitat.
 
-*Pendent: els resultats amb les opcions llegides per OCR i sobre el set de pràctica dels organitzadors.*
 
 ### Teaching
 
@@ -113,7 +137,11 @@ Sobre 50 problemes de validació de M3Kang, a la placa. **En aquestes proves cap
 - **Estudiants simulats** (`python3 -m trainer.simulate`): un estudiant que sap fins al nivell *t* acaba oscil·lant entre *t-1* i *t*. Amb respostes a l'atzar puja massa ràpid, perquè un sol encert per casualitat ja el fa pujar.
 - **Qualitat de les pistes:** en una revisió preliminar de 20 pistes triades per paraules compartides (TF-IDF), les 20 eren més fàcils, i 9 eren del mateix tema (3 a mitges, 7 no). Les que fallaven compartien una paraula sense compartir les matemàtiques («corda», «pont», «ciutat»). *Pendent: repetir-la amb embeddings.*
 
-## Anàlisi d'errors (Reasoning, baseline sense opcions, 50 problemes)
+## Anàlisi d'errors
+
+**Set de pràctica, versió final (30 problemes, amb opcions):** 5/15 en català i 5/15 en anglès. Per nivells: 0/4 al nivell 0, 0/3 al 1, 2/6 al 2, 4/5 al 3, 0/1 al 4, 2/5 al 5, 1/3 al 6 i 1/3 al 7. Com que el model respon gairebé sempre D, aquests encerts depenen sobretot de quants problemes de cada grup tenen la D com a resposta, i no de la dificultat.
+
+**Primeres proves (baseline sense opcions, 50 problemes de validació de M3Kang):**
 
 | Idioma | Encerts |
 | --- | --- |
@@ -131,11 +159,12 @@ Amb tan pocs problemes per grup, aquestes diferències no són significatives. N
 - **La placa es reiniciava sola** sota càrrega (compilant llama.cpp), alimentada per l'USB del portàtil i, menys sovint, amb un carregador de 120 W. Un reinici a mitja compilació deixava fitxers `.o` buits que trencaven l'enllaçat: calia esborrar-los i recompilar.
 - **L'app d'App Lab no compilava** el sketch: faltaven les llibreries `MsgPack`, `DebugLog`, `ArxContainer` i `ArxTypeTraits` a `sketch.yaml`.
 - **La versió d'`arduino.app_utils` de la placa no tenia `Frame`**: enviem directament els bytes de la matriu amb `grid.tobytes()`.
-- **L'OCR de les opcions és lent** al portàtil (uns 12 problemes per minut).
+- **L'OCR de les opcions és lent** al portàtil (uns 12 problemes per minut): no va acabar fins el matí de l'entrega, i per això vam calibrar amb poques dades.
+- **El model petit gairebé no aprofita les opcions**: amb opcions o sense, respon gairebé sempre la mateixa lletra (B o D segons la prova). Corregir aquesta preferència no ajuda si el model no té senyal a sota.
 
 ## Què faríem després
 
-- Calibrar i mesurar amb les opcions llegides per OCR, i amb més de 50 problemes.
+- Calibrar amb molts més problemes amb opcions (només en vam poder fer servir 40), i mesurar amb el set de pràctica sencer.
 - Provar un model més gran (Qwen3.5 2B) si respon en menys de 60 s.
 - Afegir un problema semblant ja resolt com a exemple al prompt (`--rag 1`).
 - A l'entrenador: demanar dos encerts seguits per pujar de nivell, i validar les pistes amb embeddings.
