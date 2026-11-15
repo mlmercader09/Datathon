@@ -47,7 +47,7 @@ if [ -d "$REPO/data/images" ]; then
   cp -ru "$REPO/data/images/." "$APP/assets/images/"
   echo "Images: $(ls "$APP/assets/images" | wc -l)"
 else
-  echo "No data/images: the page will show the text only. Copy the images to the board (see the explorer section of the README)."
+  echo "No data/images: the page will show the text only. Copy the images to the board (see the explorer section of GUIA_REPTE.md)."
 fi
 
 echo

@@ -50,7 +50,7 @@ A la placa és el mateix, amb `python3`. Afegiu `--host 0.0.0.0` perquè s'hi pu
 
 ## A la placa
 
-Des de la carpeta del repositori a la placa, amb les dades i les imatges ja copiades (pas 10 i secció *explorer* del README principal) i els serveis dels models engegats (pas 7).
+Des de la carpeta del repositori a la placa, amb les dades i les imatges ja copiades (pas 10 i secció *explorer* de GUIA_REPTE.md) i els serveis dels models engegats (pas 7).
 
 ### 1. Els embeddings de tots els problemes (uns 10 minuts, una sola vegada)
 
